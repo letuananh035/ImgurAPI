@@ -22,7 +22,6 @@ namespace ImgurSharp
         public const string UrlToken = "https://api.imgur.com/oauth2/token";
         public const string UrlAuth = "https://api.imgur.com/oauth2/authorize";
         public const string UrlSignin = "https://imgur.com/signin";
-        public const string UrlUpload = "https://api.imgur.com/3/image/";
         public const string UserAgent = "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1; .NET CLR 1.1.4322; .NET CLR 2.0.50727)";
         public const string BaseUrl = "https://api.imgur.com/3/";
 

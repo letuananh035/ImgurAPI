@@ -12,7 +12,7 @@ namespace TestImgur
         static Imgur API;
         static void Main(string[] args)
         {
-            API = new Imgur("letuananh035", "bate7a1954753", "76e738a94a1792c", "2fd2eeea9366ef4ec932f65ce6a64c7cc09780b9");
+            API = new Imgur("letuananh035", "", "76e738a94a1792c", "2fd2eeea9366ef4ec932f65ce6a64c7cc09780b9");
             UploadImage();
             System.Console.ReadLine();
 
