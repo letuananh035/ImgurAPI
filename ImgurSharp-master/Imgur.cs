@@ -27,6 +27,7 @@ namespace ImgurSharp
         public const string UserAgent = "Mozilla/4.0 (Compatible; Windows NT 5.1; MSIE 6.0) " + "(compatible; MSIE 6.0; Windows NT 5.1; " + ".NET CLR 1.1.4322; .NET CLR 2.0.50727)";
         public const string ImgurUrl = "https://api.imgur.com/3/";
         public const string MashapeUrl = "https://imgur-apiv3.p.mashape.com/3/";
+        public const string SecretUrl = "https://api.imgur.com/oauth2/secret";
         public string BaseUrl = ImgurUrl;
 
 
@@ -233,6 +234,27 @@ namespace ImgurSharp
             }
         }
         /// <summary>
+        /// Check Token
+        /// </summary>
+        /// <param name="token">Token Account(</param>
+        /// <returns>bool token expires</returns>
+        public async Task<bool> ChechToken(string token)
+        {
+            Console.WriteLine("Check token");
+            //get token
+            using (HttpClient client = new HttpClient())
+            {
+                SetHeader(client, token);
+                client.DefaultRequestHeaders.Add("ContentType", "application/x-www-form-urlencoded");
+                HttpResponseMessage response = await client.GetAsync(new Uri(SecretUrl));
+                if ((int)response.StatusCode == 200)
+                {
+                    return true;
+                }
+                return false;
+            }
+        }
+        /// <summary>
         /// Upload Image
         /// </summary>
         /// <param name="imageStream">Stream of image</param>
@@ -240,13 +262,12 @@ namespace ImgurSharp
         /// <param name="title">Title of image</param>
         /// <param name="description">Description of image</param>
         /// <returns>ImgurImage object</returns>
-        public async Task<ImgurImage> UploadImage(Stream imageStream, string title, string description, string token)
+        public async Task<ImgurImage> UploadImage(Stream imageStream, string title, string description, string token = "")
         {
             using (HttpClient client = new HttpClient())
             {
                 SetHeader(client, token);
                 string base64Image = PhotoStreamToBase64(imageStream);
-
                 var formContent = new FormUrlEncodedContent(new[] { 
                     new KeyValuePair<string, string>("image", base64Image),
                     new KeyValuePair<string, string>("type", "base64"),
@@ -254,6 +275,16 @@ namespace ImgurSharp
                     new KeyValuePair<string, string>("title", title),
                     new KeyValuePair<string, string>("description", description)
                 });
+                if (token != "")
+                {
+                    formContent = new FormUrlEncodedContent(new[] { 
+                    new KeyValuePair<string, string>("image", base64Image),
+                    new KeyValuePair<string, string>("type", "base64"),
+                    new KeyValuePair<string, string>("title", title),
+                    new KeyValuePair<string, string>("description", description)
+                });
+                }
+
                 HttpResponseMessage response = await client.PostAsync(new Uri(BaseUrl + "upload"), formContent);
                 await CheckHttpStatusCode(response);
                 string content = await response.Content.ReadAsStringAsync();
@@ -271,7 +302,7 @@ namespace ImgurSharp
         /// <param name="description">Description of image</param>
         /// <param name="token">Token account</param>
         /// <returns>ImgurImage object</returns>
-        public async Task<ImgurImage> UploadImage(string url, string title, string description, string token)
+        public async Task<ImgurImage> UploadImage(string url, string title, string description, string token = "")
         {
             using (HttpClient client = new HttpClient())
             {
@@ -281,6 +312,13 @@ namespace ImgurSharp
                     new KeyValuePair<string, string>("name", "Anonymous"),
                     new KeyValuePair<string, string>("title", title),
                     new KeyValuePair<string, string>("description", description) });
+                if (token != "")
+                {
+                    formContent = new FormUrlEncodedContent(new[] { 
+                    new KeyValuePair<string, string>("image", url),
+                    new KeyValuePair<string, string>("title", title),
+                    new KeyValuePair<string, string>("description", description) });
+                }
 
                 HttpResponseMessage response = await client.PostAsync(new Uri(BaseUrl + "upload"), formContent);
                 await CheckHttpStatusCode(response);
@@ -486,7 +524,7 @@ namespace ImgurSharp
         {
             using (HttpClient client = new HttpClient())
             {
-                SetHeader(client,"");
+                SetHeader(client, "");
                 HttpResponseMessage response = await client.GetAsync(new Uri(BaseUrl + "album/" + albumId));
                 await CheckHttpStatusCode(response);
                 string content = await response.Content.ReadAsStringAsync();
@@ -505,7 +543,7 @@ namespace ImgurSharp
         {
             using (HttpClient client = new HttpClient())
             {
-                SetHeader(client,"");
+                SetHeader(client, "");
                 HttpResponseMessage response = await client.GetAsync(new Uri(BaseUrl + "image/" + imageId));
                 await CheckHttpStatusCode(response);
                 string content = await response.Content.ReadAsStringAsync();
@@ -520,7 +558,7 @@ namespace ImgurSharp
         /// </summary>
         /// <param name="username">Username Account</param>
         /// <returns>ImgurAccount object</returns>
-        public async Task<ImgurAccount> GetAccount(string username)
+        public async Task<ImgurAccount> GetAccount(string username = "me")
         {
             using (HttpClient client = new HttpClient())
             {
@@ -538,16 +576,14 @@ namespace ImgurSharp
         /// <summary>
         /// Get Account
         /// </summary>
-        /// <param name="username">Username Account</param>
         /// <param name="token">Token Account</param>
         /// <returns>Amount Image</returns>
-        public async Task<long> GetImageCount(string username, string token)
+        public async Task<long> GetImageCount(string token)
         {
             using (HttpClient client = new HttpClient())
             {
                 SetHeader(client, token);
-                //var formContent = new FormUrlEncodedContent(username);
-                HttpResponseMessage response = await client.GetAsync(new Uri(BaseUrl + "account/" + username + "/images/count"));
+                HttpResponseMessage response = await client.GetAsync(new Uri(BaseUrl + "account/me/images/count"));
                 await CheckHttpStatusCode(response);
                 string content = await response.Content.ReadAsStringAsync();
 
@@ -558,16 +594,15 @@ namespace ImgurSharp
         /// <summary>
         /// Get list ID image from account
         /// </summary>
-        /// <param name="username">Username Account</param>
         /// <param name="token">Token Account</param>
         /// <returns>List String</returns>
-        public async Task<List<string>> GetImageIDs(string username, string token)
+        public async Task<List<string>> GetImageIDs(string token)
         {
             using (HttpClient client = new HttpClient())
             {
                 SetHeader(client, token);
                 //var formContent = new FormUrlEncodedContent(username);
-                HttpResponseMessage response = await client.GetAsync(new Uri(BaseUrl + "account/" + username + "/images/ids/"));
+                HttpResponseMessage response = await client.GetAsync(new Uri(BaseUrl + "account/me/images/ids/"));
                 await CheckHttpStatusCode(response);
                 string content = await response.Content.ReadAsStringAsync();
                 Console.WriteLine(content);
@@ -578,16 +613,15 @@ namespace ImgurSharp
         /// <summary>
         /// Get list ImgurImage from account
         /// </summary>
-        /// <param name="username">Username Account</param>
         /// <param name="token">Token Account</param>
         /// <returns>List ImgurImage</returns>
-        public async Task<List<ImgurImage>> GetImages(string username, string token)
+        public async Task<List<ImgurImage>> GetImages(string token)
         {
             using (HttpClient client = new HttpClient())
             {
                 SetHeader(client, token);
                 //var formContent = new FormUrlEncodedContent(username);
-                HttpResponseMessage response = await client.GetAsync(new Uri(BaseUrl + "account/" + username + "/images/"));
+                HttpResponseMessage response = await client.GetAsync(new Uri(BaseUrl + "account/me/images/"));
                 await CheckHttpStatusCode(response);
                 string content = await response.Content.ReadAsStringAsync();
                 Console.WriteLine(content);
