@@ -12,7 +12,7 @@ namespace TestImgur
         static Imgur API;
         static void Main(string[] args)
         {
-            API = new Imgur("letuananh035", "", "76e738a94a1792c", "2fd2eeea9366ef4ec932f65ce6a64c7cc09780b9");
+            API = new Imgur("username", "password", "ID", "Secret");
             UploadImage();
             System.Console.ReadLine();
 
@@ -22,8 +22,8 @@ namespace TestImgur
             try
             {
                 API.CreateSession();
-                string PIN = API.RequestPin();
-                ImgurToken Token = await API.RequestToken(PIN);
+                string Code = API.RequestPin();
+                ImgurToken Token = await API.RequestTokenWithPin(Code);
                 System.Console.WriteLine(Token.Access_token);
                 //Image
                 List<ImgurImage> ImageCount = await API.GetImages("letuananh035", Token.Access_token);

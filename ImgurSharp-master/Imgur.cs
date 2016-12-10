@@ -22,8 +22,12 @@ namespace ImgurSharp
         public const string UrlToken = "https://api.imgur.com/oauth2/token";
         public const string UrlAuth = "https://api.imgur.com/oauth2/authorize";
         public const string UrlSignin = "https://imgur.com/signin";
-        public const string UserAgent = "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1; .NET CLR 1.1.4322; .NET CLR 2.0.50727)";
-        public const string BaseUrl = "https://api.imgur.com/3/";
+        //public const string UserAgent = "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1; .NET CLR 1.1.4322; .NET CLR 2.0.50727)";
+        //public const string UserAgent = "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.1; WOW64; Trident/6.0;)";
+        public const string UserAgent = "Mozilla/4.0 (Compatible; Windows NT 5.1; MSIE 6.0) " + "(compatible; MSIE 6.0; Windows NT 5.1; " + ".NET CLR 1.1.4322; .NET CLR 2.0.50727)";
+        public const string ImgurUrl = "https://api.imgur.com/3/";
+        public const string MashapeUrl = "https://imgur-apiv3.p.mashape.com/3/";
+        public string BaseUrl = ImgurUrl;
 
 
         public JavaScriptSerializer serializer;
@@ -31,6 +35,7 @@ namespace ImgurSharp
         public string clientSecret;
         public string user;
         public string password;
+        public string keyMashape;
         public CookieContainer cookies;
         #endregion
 
@@ -43,6 +48,7 @@ namespace ImgurSharp
         public Imgur(string clientID)
         {
             this.clientID = clientID;
+            this.BaseUrl = ImgurUrl;
         }
         /// <summary>
         /// Constructor of Imgur object with Username and Password;
@@ -59,6 +65,26 @@ namespace ImgurSharp
             this.clientSecret = clientSecret;
             this.cookies = new CookieContainer();
             this.serializer = new JavaScriptSerializer();
+            this.BaseUrl = ImgurUrl;
+        }
+        /// <summary>
+        /// Constructor of Imgur object with Username and Password support Mashape;
+        /// </summary>
+        /// <param name="user">Username account</param>
+        /// <param name="password">Password account</param>
+        /// <param name="clientID">Client ID</param>
+        /// <param name="clientSecret">Client Secret</param>
+        /// <param name="keyMashape">Mashape Key</param>
+        public Imgur(string user, string password, string clientID, string clientSecret, string keyMashape)
+        {
+            this.password = password;
+            this.user = user;
+            this.clientID = clientID;
+            this.clientSecret = clientSecret;
+            this.cookies = new CookieContainer();
+            this.serializer = new JavaScriptSerializer();
+            this.keyMashape = keyMashape;
+            this.BaseUrl = MashapeUrl;
         }
         #endregion
 
@@ -70,7 +96,7 @@ namespace ImgurSharp
         /// <returns></returns>
         public void CreateSession()
         {
-            Console.WriteLine("Creating session.");
+            Console.WriteLine("Creating session");
             HttpWebRequest request = (HttpWebRequest)WebRequest.Create(UrlSignin);
             HttpWebResponse response;
 
@@ -112,24 +138,54 @@ namespace ImgurSharp
             request.UserAgent = UserAgent;
             request.AllowAutoRedirect = true;
             request.CookieContainer = cookies;
-
             response = (HttpWebResponse)request.GetResponse();
+            Console.WriteLine(response.ResponseUri);
             cookies.Add(response.Cookies);
             pin = response.ResponseUri.Query;
             if (!pin.Contains("?pin="))
-                throw (new Exception("Response does not contain pin: " + response));
+                throw (new Exception("Response does not contain pin: " + pin));
             pin = pin.Substring(pin.IndexOf("?pin=") + 5);
             if (pin.Contains("&"))
                 pin = pin.Substring(0, pin.IndexOf("&"));
-            //Console.WriteLine("Recieved pin: " + pin);
+            Console.WriteLine("Recieved pin: " + pin);
             return pin;
         }
         /// <summary>
-        /// Request Pin
+        /// Request Code
+        /// </summary>
+        /// <returns>string Code</returns>
+        public string RequestCode()
+        {
+            Console.WriteLine("Requesting pin");
+            string code = null;
+            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(UrlAuth + "?client_id=" + clientID + "&response_type=code");
+            HttpWebResponse response;
+
+            request.Method = "GET";
+            request.ContentType = "application/x-www-form-urlencoded";
+            request.Accept = "ext/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8";
+
+            request.UserAgent = UserAgent;
+            request.AllowAutoRedirect = true;
+            request.CookieContainer = cookies;
+            response = (HttpWebResponse)request.GetResponse();
+            Console.WriteLine(response.ResponseUri);
+            cookies.Add(response.Cookies);
+            code = response.ResponseUri.Query;
+            if (!code.Contains("?code="))
+                throw (new Exception("Response does not contain code: " + code));
+            code = code.Substring(code.IndexOf("?code=") + 5);
+            if (code.Contains("&"))
+                code = code.Substring(0, code.IndexOf("&"));
+            Console.WriteLine("Recieved code: " + code);
+            return code;
+        }
+        /// <summary>
+        /// Request Token
         /// </summary>
         /// <param name="pin">Pin (from RequestPin)</param>
         /// <returns>ImgurToken object</returns>
-        public async Task<ImgurToken> RequestToken(string pin)
+        public async Task<ImgurToken> RequestTokenWithPin(string pin)
         {
             Console.WriteLine("Requesting token");
             //get token
@@ -141,6 +197,32 @@ namespace ImgurSharp
                     new KeyValuePair<string, string>("client_secret", clientSecret),
                     new KeyValuePair<string, string>("grant_type", "pin"),
                     new KeyValuePair<string, string>("pin", pin) });
+
+                HttpResponseMessage response = await client.PostAsync(new Uri(UrlToken), formContent);
+                await CheckHttpStatusCode(response);
+                string content = await response.Content.ReadAsStringAsync();
+                System.Console.WriteLine(content);
+                ImgurToken deleteRoot = JsonConvert.DeserializeObject<ImgurToken>(content);
+                return deleteRoot;
+            }
+        }
+        /// <summary>
+        /// Request Token
+        /// </summary>
+        /// <param name="code">Code (from RequestCode)</param>
+        /// <returns>ImgurToken object</returns>
+        public async Task<ImgurToken> RequestTokenWithCode(string code)
+        {
+            Console.WriteLine("Requesting token");
+            //get token
+            using (HttpClient client = new HttpClient())
+            {
+                client.DefaultRequestHeaders.Add("ContentType", "application/x-www-form-urlencoded");
+                var formContent = new FormUrlEncodedContent(new[] { 
+                    new KeyValuePair<string, string>("client_id", clientID),
+                    new KeyValuePair<string, string>("client_secret", clientSecret),
+                    new KeyValuePair<string, string>("grant_type", "authorization_code"),
+                    new KeyValuePair<string, string>("code", code) });
 
                 HttpResponseMessage response = await client.PostAsync(new Uri(UrlToken), formContent);
                 await CheckHttpStatusCode(response);
@@ -517,6 +599,11 @@ namespace ImgurSharp
 
 
         #region Helpers
+        /// <summary>
+        /// Cover Image to Base64
+        /// </summary>
+        /// <param name="stream">Stream image</param>
+        /// <returns>String base64 image </returns>
         string PhotoStreamToBase64(Stream stream)
         {
             MemoryStream memoryStream = new MemoryStream();
@@ -526,6 +613,11 @@ namespace ImgurSharp
             string base64img = System.Convert.ToBase64String(result);
             return base64img;
         }
+        /// <summary>
+        /// Get Status Code
+        /// </summary>
+        /// <param name="responseMessage">Response Message</param>
+        /// <returns></returns>
         private async Task CheckHttpStatusCode(HttpResponseMessage responseMessage)
         {
             //Imgur StatusCodes
@@ -559,6 +651,12 @@ namespace ImgurSharp
 
             }
         }
+        /// <summary>
+        /// Setup Headers
+        /// </summary>
+        /// <param name="client">HttpClient</param>
+        /// <param name="token">Token Account</param>
+        /// <returns></returns>
         void SetHeader(HttpClient client, string token)
         {
             if (token != "")
@@ -568,6 +666,10 @@ namespace ImgurSharp
             else
             {
                 client.DefaultRequestHeaders.Add("Authorization", "Client-ID " + clientID);
+            }
+            if (this.keyMashape != null)
+            {
+                client.DefaultRequestHeaders.Add("X-Mashape-Key", this.keyMashape);
             }
         }
         string GetNameFromEnum<T>(int selected) where T : struct
