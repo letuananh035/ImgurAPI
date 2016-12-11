@@ -140,11 +140,13 @@ namespace ImgurSharp
             request.AllowAutoRedirect = true;
             request.CookieContainer = cookies;
             response = (HttpWebResponse)request.GetResponse();
-            Console.WriteLine(response.ResponseUri);
             cookies.Add(response.Cookies);
             pin = response.ResponseUri.Query;
             if (!pin.Contains("?pin="))
-                throw (new Exception("Response does not contain pin: " + pin));
+            {
+                return response.ResponseUri.ToString();
+            }
+                //throw (new Exception("Response does not contain pin: " + pin));
             pin = pin.Substring(pin.IndexOf("?pin=") + 5);
             if (pin.Contains("&"))
                 pin = pin.Substring(0, pin.IndexOf("&"));
@@ -170,11 +172,15 @@ namespace ImgurSharp
             request.AllowAutoRedirect = true;
             request.CookieContainer = cookies;
             response = (HttpWebResponse)request.GetResponse();
-            Console.WriteLine(response.ResponseUri);
+           
             cookies.Add(response.Cookies);
             code = response.ResponseUri.Query;
             if (!code.Contains("?code="))
-                throw (new Exception("Response does not contain code: " + code));
+            {
+                return response.ResponseUri.ToString();
+            }
+                //throw (new Exception("Response does not contain code: " + code));
+               
             code = code.Substring(code.IndexOf("?code=") + 5);
             if (code.Contains("&"))
                 code = code.Substring(0, code.IndexOf("&"));
@@ -238,7 +244,7 @@ namespace ImgurSharp
         /// </summary>
         /// <param name="token">Token Account(</param>
         /// <returns>bool token expires</returns>
-        public async Task<bool> ChechToken(string token)
+        public async Task<bool> CheckToken(ImgurToken token)
         {
             Console.WriteLine("Check token");
             //get token
@@ -255,6 +261,39 @@ namespace ImgurSharp
             }
         }
         /// <summary>
+        /// Reset Token
+        /// </summary>
+        /// <param name="token">Token Account</param>
+        /// <returns>ImgurToken new token</returns>
+        public async Task<ImgurToken> ResetToken(ImgurToken token)
+        {
+            Console.WriteLine("RefreshToken token");
+            bool checkToken = await CheckToken(token);
+            Console.WriteLine(checkToken);
+            if (checkToken == true)
+            {
+                return token;
+            }
+            using (HttpClient client = new HttpClient())
+            {
+                  SetHeader(client);
+               //get token
+                client.DefaultRequestHeaders.Add("ContentType", "application/x-www-form-urlencoded");
+                var formContent = new FormUrlEncodedContent(new[] { 
+                    new KeyValuePair<string, string>("client_id", clientID),
+                    new KeyValuePair<string, string>("client_secret", clientSecret),
+                    new KeyValuePair<string, string>("grant_type", "refresh_token"),
+                    new KeyValuePair<string, string>("refresh_token", token.Refresh_token) });
+
+                HttpResponseMessage response = await client.PostAsync(new Uri(UrlToken), formContent);
+                await CheckHttpStatusCode(response);
+                string content = await response.Content.ReadAsStringAsync();
+                System.Console.WriteLine(content);
+                ImgurToken deleteRoot = JsonConvert.DeserializeObject<ImgurToken>(content);
+                return deleteRoot;
+            }
+        }
+        /// <summary>
         /// Upload Image
         /// </summary>
         /// <param name="imageStream">Stream of image</param>
@@ -262,7 +301,7 @@ namespace ImgurSharp
         /// <param name="title">Title of image</param>
         /// <param name="description">Description of image</param>
         /// <returns>ImgurImage object</returns>
-        public async Task<ImgurImage> UploadImage(Stream imageStream, string title, string description, string token = "")
+        public async Task<ImgurImage> UploadImage(Stream imageStream, string title, string description, ImgurToken token = null)
         {
             using (HttpClient client = new HttpClient())
             {
@@ -275,11 +314,12 @@ namespace ImgurSharp
                     new KeyValuePair<string, string>("title", title),
                     new KeyValuePair<string, string>("description", description)
                 });
-                if (token != "")
+                if (token != null)
                 {
                     formContent = new FormUrlEncodedContent(new[] { 
                     new KeyValuePair<string, string>("image", base64Image),
                     new KeyValuePair<string, string>("type", "base64"),
+                    new KeyValuePair<string, string>("name", token.Account_username),
                     new KeyValuePair<string, string>("title", title),
                     new KeyValuePair<string, string>("description", description)
                 });
@@ -302,7 +342,7 @@ namespace ImgurSharp
         /// <param name="description">Description of image</param>
         /// <param name="token">Token account</param>
         /// <returns>ImgurImage object</returns>
-        public async Task<ImgurImage> UploadImage(string url, string title, string description, string token = "")
+        public async Task<ImgurImage> UploadImage(string url, string title, string description, ImgurToken token = null)
         {
             using (HttpClient client = new HttpClient())
             {
@@ -312,11 +352,12 @@ namespace ImgurSharp
                     new KeyValuePair<string, string>("name", "Anonymous"),
                     new KeyValuePair<string, string>("title", title),
                     new KeyValuePair<string, string>("description", description) });
-                if (token != "")
+                if (token != null)
                 {
                     formContent = new FormUrlEncodedContent(new[] { 
                     new KeyValuePair<string, string>("image", url),
                     new KeyValuePair<string, string>("title", title),
+                    new KeyValuePair<string, string>("name", token.Account_username),
                     new KeyValuePair<string, string>("description", description) });
                 }
 
@@ -336,7 +377,7 @@ namespace ImgurSharp
         /// <param name="key">DeleteHash or Id of Image, attained when creating image</param>
         /// <param name="token">Token account</param>
         /// <returns>bool of result</returns>
-        public async Task<bool> DeleteImage(string key, string token)
+        public async Task<bool> DeleteImage(string key, ImgurToken token = null)
         {
             using (HttpClient client = new HttpClient())
             {
@@ -356,7 +397,7 @@ namespace ImgurSharp
         /// <param name="title">New title</param>
         /// <param name="description">New Description</param>
         /// <returns>bool of result</returns>
-        public async Task<bool> UpdateImage(string key, string title, string description, string token)
+        public async Task<bool> UpdateImage(string key, string title, string description, ImgurToken token = null)
         {
             using (HttpClient client = new HttpClient())
             {
@@ -387,7 +428,7 @@ namespace ImgurSharp
         /// <param name="coverImageId">Cover image of album, imageId. Should be in the album</param>
         /// <param name="token">Token account</param>
         /// <returns>ImgurCreateAlbum which contains deletehash and link</returns>
-        public async Task<ImgurCreateAlbum> CreateAlbum(IEnumerable<string> imageIds, string title, string description, ImgurAlbumPrivacy privacy, ImgurAlbumLayout layout, string coverImageId, string token)
+        public async Task<ImgurCreateAlbum> CreateAlbum(IEnumerable<string> imageIds, string title, string description, ImgurAlbumPrivacy privacy, ImgurAlbumLayout layout, string coverImageId, ImgurToken token = null)
         {
             using (HttpClient client = new HttpClient())
             {
@@ -423,7 +464,7 @@ namespace ImgurSharp
         /// <param name="cover">new coverImage, imageId</param>
         /// <param name="token">Token account</param>
         /// <returns>bool of result</returns>
-        public async Task<bool> UpdateAlbum(string key, IEnumerable<string> imageIds, string title, string description, ImgurAlbumPrivacy privacy, ImgurAlbumLayout layout, string cover, string token)
+        public async Task<bool> UpdateAlbum(string key, IEnumerable<string> imageIds, string title, string description, ImgurAlbumPrivacy privacy, ImgurAlbumLayout layout, string cover, ImgurToken token = null)
         {
             using (HttpClient client = new HttpClient())
             {
@@ -453,7 +494,7 @@ namespace ImgurSharp
         /// <param name="key">DeleteHash or Id of Image, obtained when creating Album</param>
         /// <param name="token">Token account</param>
         /// <returns></returns>
-        public async Task<bool> DeleteAlbum(string key, string token)
+        public async Task<bool> DeleteAlbum(string key, ImgurToken token = null)
         {
             using (HttpClient client = new HttpClient())
             {
@@ -474,7 +515,7 @@ namespace ImgurSharp
         /// <param name="imageIds">ALL images must be here, imgur will otherwise remove the ones missing</param>
         /// <param name="token">Token account</param>
         /// <returns></returns>
-        public async Task<bool> AddImagesToAlbum(string key, IEnumerable<string> imageIds, string token)
+        public async Task<bool> AddImagesToAlbum(string key, IEnumerable<string> imageIds, ImgurToken token = null)
         {
             using (HttpClient client = new HttpClient())
             {
@@ -501,7 +542,7 @@ namespace ImgurSharp
         /// <param name="imageIds">ALL images must be here, imgur will otherwise remove the ones missing</param>
         /// <param name="token">Token account</param>
         /// <returns></returns>
-        public async Task<bool> RemoveImagesFromAlbum(string key, IEnumerable<string> imageIds, string token)
+        public async Task<bool> RemoveImagesFromAlbum(string key, IEnumerable<string> imageIds, ImgurToken token = null)
         {
             using (HttpClient client = new HttpClient())
             {
@@ -524,7 +565,7 @@ namespace ImgurSharp
         {
             using (HttpClient client = new HttpClient())
             {
-                SetHeader(client, "");
+                SetHeader(client);
                 HttpResponseMessage response = await client.GetAsync(new Uri(BaseUrl + "album/" + albumId));
                 await CheckHttpStatusCode(response);
                 string content = await response.Content.ReadAsStringAsync();
@@ -543,7 +584,7 @@ namespace ImgurSharp
         {
             using (HttpClient client = new HttpClient())
             {
-                SetHeader(client, "");
+                SetHeader(client);
                 HttpResponseMessage response = await client.GetAsync(new Uri(BaseUrl + "image/" + imageId));
                 await CheckHttpStatusCode(response);
                 string content = await response.Content.ReadAsStringAsync();
@@ -562,7 +603,7 @@ namespace ImgurSharp
         {
             using (HttpClient client = new HttpClient())
             {
-                SetHeader(client, "");
+                SetHeader(client);
                 //var formContent = new FormUrlEncodedContent(username);
                 HttpResponseMessage response = await client.GetAsync(new Uri(BaseUrl + "account/" + username));
                 await CheckHttpStatusCode(response);
@@ -578,7 +619,7 @@ namespace ImgurSharp
         /// </summary>
         /// <param name="token">Token Account</param>
         /// <returns>Amount Image</returns>
-        public async Task<long> GetImageCount(string token)
+        public async Task<long> GetImageCount(ImgurToken token = null)
         {
             using (HttpClient client = new HttpClient())
             {
@@ -596,7 +637,7 @@ namespace ImgurSharp
         /// </summary>
         /// <param name="token">Token Account</param>
         /// <returns>List String</returns>
-        public async Task<List<string>> GetImageIDs(string token)
+        public async Task<List<string>> GetImageIDs(ImgurToken token = null)
         {
             using (HttpClient client = new HttpClient())
             {
@@ -615,7 +656,7 @@ namespace ImgurSharp
         /// </summary>
         /// <param name="token">Token Account</param>
         /// <returns>List ImgurImage</returns>
-        public async Task<List<ImgurImage>> GetImages(string token)
+        public async Task<List<ImgurImage>> GetImages(ImgurToken token = null)
         {
             using (HttpClient client = new HttpClient())
             {
@@ -691,11 +732,11 @@ namespace ImgurSharp
         /// <param name="client">HttpClient</param>
         /// <param name="token">Token Account</param>
         /// <returns></returns>
-        void SetHeader(HttpClient client, string token)
+        void SetHeader(HttpClient client, ImgurToken token = null)
         {
-            if (token != "")
+            if (token != null)
             {
-                client.DefaultRequestHeaders.Add("Authorization", "Bearer " + token);
+                client.DefaultRequestHeaders.Add("Authorization", "Bearer " + token.Access_token);
             }
             else
             {

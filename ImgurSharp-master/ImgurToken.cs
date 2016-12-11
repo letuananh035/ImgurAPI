@@ -10,7 +10,7 @@ namespace ImgurSharp
     public class ImgurToken
     {
         [JsonProperty("access_token")]
-        public string Access_token { get; set; }
+        public string Access_token{ get; set; }
         [JsonProperty("refresh_token")]
         public string Refresh_token { get; set; }
         [JsonProperty("expires_in")]
@@ -23,5 +23,10 @@ namespace ImgurSharp
         public string Scope { get; set; }
         [JsonProperty("account_id")]
         public string Account_id { get; set; }
+        public ImgurToken()
+        {
+            Access_token = "";
+            Refresh_token = "";
+        }
     }
 }
