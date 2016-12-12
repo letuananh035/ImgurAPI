@@ -24,10 +24,12 @@ namespace TestImgur
                 API.CreateSession();
                 //bool Check = await API.ChechToken("");
                 //System.Console.WriteLine(Check);
+                
                 string Code = API.RequestPin();
                 if (Code.Contains(".com"))
                 {
                     Console.WriteLine(Code);
+                    Console.Write("Write Pin: ");
                     Code = Console.ReadLine();
                 }
                 ImgurToken Token = await API.RequestTokenWithPin(Code);
@@ -35,13 +37,16 @@ namespace TestImgur
                 ImgurToken ResetToken = await API.ResetToken(Token);
                 Token = ResetToken;
                 System.Console.WriteLine(ResetToken.Access_token);
-                //Image
+                await API.GetImagesAlbum("Chww0");
+                long ImageCount = await API.GetImageCount(Token);
+                System.Console.WriteLine(ImageCount);
+
                 ImgurAccount Account = await API.GetAccount("letuananh035");
                 System.Console.WriteLine(Account.Id);
                 System.Console.WriteLine(Account.Description);
                 System.Console.WriteLine(Account.URL);
-                List<ImgurImage> ImageCount = await API.GetImages(Token);
-                System.Console.WriteLine(ImageCount[0].Link);
+                List<ImgurImage> Images = await API.GetImages(Token);
+                System.Console.WriteLine(Images[0].Link);
 
                 ImgurImage urlImage = await API.UploadImage("https://assets-cdn.github.com/images/modules/logos_page/GitHub-Mark.png", "title", "description", Token);
                 System.Console.Write(urlImage.Link);
@@ -68,7 +73,7 @@ namespace TestImgur
                 bool deleteAlbum = await API.DeleteAlbum(createdAlbum.Id, Token);
                 bool deletedUrlImage = await API.DeleteImage(urlImage.Deletehash);
                 bool deletedStreamImage = await API.DeleteImage(streamImage.Id, Token);
-  
+            
             }
             catch (Exception e)
             {

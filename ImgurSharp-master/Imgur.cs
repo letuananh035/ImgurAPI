@@ -97,7 +97,7 @@ namespace ImgurSharp
         /// <returns></returns>
         public void CreateSession()
         {
-            Console.WriteLine("Creating session");
+            //Console.WriteLine("Creating session");
             HttpWebRequest request = (HttpWebRequest)WebRequest.Create(UrlSignin);
             HttpWebResponse response;
 
@@ -119,7 +119,7 @@ namespace ImgurSharp
 
             response = (HttpWebResponse)request.GetResponse();
             cookies.Add(response.Cookies); ;
-            Console.WriteLine("Created session");
+            //Console.WriteLine("Created session");
         }
         /// <summary>
         /// Request Pin
@@ -127,7 +127,7 @@ namespace ImgurSharp
         /// <returns>string Pin</returns>
         public string RequestPin()
         {
-            Console.WriteLine("Requesting pin");
+            //Console.WriteLine("Requesting pin");
             string pin = null;
             HttpWebRequest request = (HttpWebRequest)WebRequest.Create(UrlAuth + "?client_id=" + clientID + "&response_type=pin");
             HttpWebResponse response;
@@ -146,11 +146,11 @@ namespace ImgurSharp
             {
                 return response.ResponseUri.ToString();
             }
-                //throw (new Exception("Response does not contain pin: " + pin));
+            //throw (new Exception("Response does not contain pin: " + pin));
             pin = pin.Substring(pin.IndexOf("?pin=") + 5);
             if (pin.Contains("&"))
                 pin = pin.Substring(0, pin.IndexOf("&"));
-            Console.WriteLine("Recieved pin: " + pin);
+            //Console.WriteLine("Recieved pin: " + pin);
             return pin;
         }
         /// <summary>
@@ -159,7 +159,7 @@ namespace ImgurSharp
         /// <returns>string Code</returns>
         public string RequestCode()
         {
-            Console.WriteLine("Requesting pin");
+            //Console.WriteLine("Requesting code");
             string code = null;
             HttpWebRequest request = (HttpWebRequest)WebRequest.Create(UrlAuth + "?client_id=" + clientID + "&response_type=code");
             HttpWebResponse response;
@@ -172,19 +172,19 @@ namespace ImgurSharp
             request.AllowAutoRedirect = true;
             request.CookieContainer = cookies;
             response = (HttpWebResponse)request.GetResponse();
-           
+
             cookies.Add(response.Cookies);
             code = response.ResponseUri.Query;
             if (!code.Contains("?code="))
             {
                 return response.ResponseUri.ToString();
             }
-                //throw (new Exception("Response does not contain code: " + code));
-               
+            //throw (new Exception("Response does not contain code: " + code));
+
             code = code.Substring(code.IndexOf("?code=") + 5);
             if (code.Contains("&"))
                 code = code.Substring(0, code.IndexOf("&"));
-            Console.WriteLine("Recieved code: " + code);
+            //Console.WriteLine("Recieved code: " + code);
             return code;
         }
         /// <summary>
@@ -194,7 +194,7 @@ namespace ImgurSharp
         /// <returns>ImgurToken object</returns>
         public async Task<ImgurToken> RequestTokenWithPin(string pin)
         {
-            Console.WriteLine("Requesting token");
+            //Console.WriteLine("Requesting token");
             //get token
             using (HttpClient client = new HttpClient())
             {
@@ -220,7 +220,7 @@ namespace ImgurSharp
         /// <returns>ImgurToken object</returns>
         public async Task<ImgurToken> RequestTokenWithCode(string code)
         {
-            Console.WriteLine("Requesting token");
+           // Console.WriteLine("Requesting token");
             //get token
             using (HttpClient client = new HttpClient())
             {
@@ -246,7 +246,7 @@ namespace ImgurSharp
         /// <returns>bool token expires</returns>
         public async Task<bool> CheckToken(ImgurToken token)
         {
-            Console.WriteLine("Check token");
+            //Console.WriteLine("Check token");
             //get token
             using (HttpClient client = new HttpClient())
             {
@@ -267,17 +267,16 @@ namespace ImgurSharp
         /// <returns>ImgurToken new token</returns>
         public async Task<ImgurToken> ResetToken(ImgurToken token)
         {
-            Console.WriteLine("RefreshToken token");
+            //Console.WriteLine("RefreshToken token");
             bool checkToken = await CheckToken(token);
-            Console.WriteLine(checkToken);
             if (checkToken == true)
             {
                 return token;
             }
             using (HttpClient client = new HttpClient())
             {
-                  SetHeader(client);
-               //get token
+                SetHeader(client);
+                //get token
                 client.DefaultRequestHeaders.Add("ContentType", "application/x-www-form-urlencoded");
                 var formContent = new FormUrlEncodedContent(new[] { 
                     new KeyValuePair<string, string>("client_id", clientID),
@@ -663,6 +662,25 @@ namespace ImgurSharp
                 SetHeader(client, token);
                 //var formContent = new FormUrlEncodedContent(username);
                 HttpResponseMessage response = await client.GetAsync(new Uri(BaseUrl + "account/me/images/"));
+                await CheckHttpStatusCode(response);
+                string content = await response.Content.ReadAsStringAsync();
+                Console.WriteLine(content);
+                ImgurRootObject<List<ImgurImage>> imgRoot = JsonConvert.DeserializeObject<ImgurRootObject<List<ImgurImage>>>(content);
+                return imgRoot.Data;
+            }
+        }
+        /// <summary>
+        /// Get list ID image from Album
+        /// </summary>
+        /// <param name="ID">ID Album</param>
+        /// <returns>List String</returns>
+        public async Task<List<ImgurImage>> GetImagesAlbum(string ID)
+        {
+            using (HttpClient client = new HttpClient())
+            {
+                SetHeader(client);
+                //var formContent = new FormUrlEncodedContent(username);
+                HttpResponseMessage response = await client.GetAsync(new Uri(BaseUrl + "album/" + ID + "/images"));
                 await CheckHttpStatusCode(response);
                 string content = await response.Content.ReadAsStringAsync();
                 Console.WriteLine(content);
